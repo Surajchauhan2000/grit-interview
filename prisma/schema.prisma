@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StudentStatus {
+  NOT_ELIGIBLE
+  ELIGIBLE
+  BOOKED
+  AWAITING_RESULT
+  PASSED
+  FAILED
+  RETAKE_LATER
+  BADGE_NULLIFIED
+}
+
+enum SlotStatus {
+  OPEN
+  BOOKED
+  CANCELLED
+}
+
+enum BookingStatus {
+  BOOKED
+  CANCELLED
+  NO_SHOW
+  COMPLETED
+}
+
+enum Result {
+  PASS
+  FAIL
+  RETAKE
+}
+
+model Student {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  track        String
+  status       StudentStatus @default(NOT_ELIGIBLE)
+  retakeAfter  DateTime?
+  bookings     Booking[]
+  badges       Badge[]
+  createdAt    DateTime      @default(now())
+}
+
+model Interviewer {
+  id    String @id @default(cuid())
+  name  String
+  email String @unique
+  slots Slot[]
+}
+
+model Slot {
+  id            String      @id @default(cuid())
+  interviewerId String
+  interviewer   Interviewer @relation(fields: [interviewerId], references: [id])
+  startsAt      DateTime
+  endsAt        DateTime
+  status        SlotStatus  @default(OPEN)
+  bookings      Booking[]
+
+  @@unique([interviewerId, startsAt])
+  @@index([status, startsAt])
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  studentId   String
+  student     Student       @relation(fields: [studentId], references: [id])
+  slotId      String
+  slot        Slot          @relation(fields: [slotId], references: [id])
+  status      BookingStatus @default(BOOKED)
+  attempt     Int           @default(1)
+  cancelledAt DateTime?
+  createdAt   DateTime      @default(now())
+  outcome     Outcome?
+
+  @@index([studentId])
+}
+
+model Outcome {
+  id         String   @id @default(cuid())
+  bookingId  String   @unique
+  booking    Booking  @relation(fields: [bookingId], references: [id])
+  result     Result
+  notes      String?
+  recordedBy String
+  recordedAt DateTime @default(now())
+}
+
+model Badge {
+  id              String   @id @default(cuid())
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id])
+  track           String
+  active          Boolean  @default(true)
+  nullifiedReason String?
+  awardedAt       DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  entity    String
+  entityId  String
+  action    String
+  actor     String
+  meta      Json?
+  createdAt DateTime @default(now())
+}
